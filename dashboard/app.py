@@ -239,41 +239,58 @@ if predict:
     with st.spinner("Analyzing applicant profile..."):
         try:
             pred, prob = predict_loan(preprocess_input())
-            risk = risk_category(prob)
+
+            # ✅ SINGLE SOURCE OF TRUTH
+            if prob >= 0.6:
+                risk = "High Risk"
+            elif prob >= 0.3:
+                risk = "Medium Risk"
+            else:
+                risk = "Low Risk"
+
         except:
-            # Fallback mock prediction
-            prob = min(0.9, (percent_income/100 + (1 if default_hist=='Y' else 0) + 
-                           {'A':0.1,'B':0.2,'C':0.3,'D':0.4,'E':0.5,'F':0.6,'G':0.7}[grade])/3)
-            pred = 1 if prob > 0.5 else 0
-            risk = "Low Risk" if prob < 0.3 else "Medium Risk" if prob < 0.7 else "High Risk"
+            prob = 0.5
+            risk = "Medium Risk"
+            pred = 1
 
     st.markdown("<div style='height:.5rem'></div>", unsafe_allow_html=True)
     st.markdown('<div style="background:linear-gradient(135deg,#1E293B,#1a2540);border:1px solid #334155;border-radius:16px;padding:1.5rem;">', unsafe_allow_html=True)
     section("Prediction Result", "#2DD4BF", "#0D9488")
 
     m1, m2, m3 = st.columns(3)
+
+    # ✅ Prediction
     with m1:
-        st.metric("Prediction", "Default ✗" if pred == 1 else "Safe ✓",
-                  delta="High Risk" if pred == 1 else "Low Risk", delta_color="inverse")
+        st.metric(
+            "Prediction",
+            "Default ✗" if prob >= 0.5 else "Safe ✓",
+            delta=risk,
+            delta_color="inverse"
+        )
+
+    # ✅ Risk Score
     with m2:
-        st.metric("Risk Score", f"{prob:.2f}")
+        st.metric("Risk Score", f"{prob*100:.1f}%")
+
+    # ✅ Risk Level
     with m3:
         st.metric("Risk Level", risk)
 
     st.markdown("<div style='height:.5rem'></div>", unsafe_allow_html=True)
 
-    # Labeled progress bar
+    # ✅ Progress Bar
     col_l, col_r = st.columns([5, 1])
     with col_l:
         st.caption("Default probability")
     with col_r:
-        pct_color = "#4ADE80" if prob < 0.3 else ("#FBBF24" if prob < 0.7 else "#F87171")
+        pct_color = "#4ADE80" if risk == "Low Risk" else ("#FBBF24" if risk == "Medium Risk" else "#F87171")
         st.markdown(f"<p style='text-align:right;font-size:12px;font-weight:700;color:{pct_color};margin:0'>{prob*100:.1f}%</p>", unsafe_allow_html=True)
+
     st.progress(int(prob * 100))
 
     st.markdown("<div style='height:.5rem'></div>", unsafe_allow_html=True)
 
-    # Alert
+    # ✅ Alert
     if risk == "High Risk":
         st.error("🚨 High risk applicant — loan approval is not recommended.")
     elif risk == "Medium Risk":
@@ -281,12 +298,12 @@ if predict:
     else:
         st.success("✅ Low risk applicant — safe for loan approval.")
 
-    # Insight box
-    if prob > 0.7:
+    # ✅ Insight
+    if risk == "High Risk":
         msg = "High default probability detected. Review income stability, credit history, and consider collateral before approval."
         accent = "#F87171"
-    elif prob > 0.3:
-        msg = "Moderate risk detected. Additional document verification and a collateral assessment is advised."
+    elif risk == "Medium Risk":
+        msg = "Moderate risk detected. Additional document verification and collateral assessment is advised."
         accent = "#FBBF24"
     else:
         msg = "Strong financial profile. Income-to-loan ratio and credit history are within safe thresholds. Approval recommended."
