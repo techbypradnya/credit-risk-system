@@ -12,25 +12,29 @@ pca = joblib.load(os.path.join(BASE_DIR, "models", "pca.pkl"))
 imputer = joblib.load(os.path.join(BASE_DIR, "models", "imputer.pkl"))
 columns = joblib.load(os.path.join(BASE_DIR, "models", "columns.pkl"))
 
-
-# 🔥 Prediction Function ONLY
+# Prediction function
 def predict_loan(data_dict):
     
     df = pd.DataFrame([data_dict])
 
-    # Encoding
     df = pd.get_dummies(df)
-
-    # Align columns with training
     df = df.reindex(columns=columns, fill_value=0)
 
-    # Apply preprocessing
     df = imputer.transform(df)
     df = scaler.transform(df)
     df = pca.transform(df)
 
-    # Prediction
     prediction = model.predict(df)[0]
     probability = model.predict_proba(df)[0][1]
 
     return prediction, probability
+
+
+# 🔥 ADD THIS FUNCTION
+def risk_category(probability):
+    if probability < 0.3:
+        return "Low Risk"
+    elif probability < 0.7:
+        return "Medium Risk"
+    else:
+        return "High Risk"
