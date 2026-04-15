@@ -233,25 +233,17 @@ def preprocess_input():
         'cb_person_default_on_file': default_hist,
         'cb_person_cred_hist_length': cred_hist
     }
-
 # ─── RESULTS ───────────────────────────────────────────────────
 if predict:
     with st.spinner("Analyzing applicant profile..."):
         try:
-            pred, prob = predict_loan(preprocess_input())
-
             # ✅ SINGLE SOURCE OF TRUTH
-            if prob >= 0.6:
-                risk = "High Risk"
-            elif prob >= 0.3:
-                risk = "Medium Risk"
-            else:
-                risk = "Low Risk"
+            risk, prob = predict_loan(preprocess_input())
 
-        except:
-            prob = 0.5
+        except Exception as e:
+            st.error("Prediction error. Please check input.")
             risk = "Medium Risk"
-            pred = 1
+            prob = 0.5
 
     st.markdown("<div style='height:.5rem'></div>", unsafe_allow_html=True)
     st.markdown('<div style="background:linear-gradient(135deg,#1E293B,#1a2540);border:1px solid #334155;border-radius:16px;padding:1.5rem;">', unsafe_allow_html=True)
@@ -259,13 +251,11 @@ if predict:
 
     m1, m2, m3 = st.columns(3)
 
-    # ✅ Prediction
+    # ✅ Prediction (ONLY risk, no binary confusion)
     with m1:
         st.metric(
             "Prediction",
-            "Default ✗" if prob >= 0.5 else "Safe ✓",
-            delta=risk,
-            delta_color="inverse"
+            risk
         )
 
     # ✅ Risk Score
@@ -278,12 +268,12 @@ if predict:
 
     st.markdown("<div style='height:.5rem'></div>", unsafe_allow_html=True)
 
-    # ✅ Progress Bar
+    # ✅ Progress Bar Label
     col_l, col_r = st.columns([5, 1])
     with col_l:
         st.caption("Default probability")
     with col_r:
-        pct_color = "#4ADE80" if risk == "Low Risk" else ("#FBBF24" if risk == "Medium Risk" else "#F87171")
+        pct_color = "#4ADE80" if "Low" in risk else ("#FBBF24" if "Medium" in risk else "#F87171")
         st.markdown(f"<p style='text-align:right;font-size:12px;font-weight:700;color:{pct_color};margin:0'>{prob*100:.1f}%</p>", unsafe_allow_html=True)
 
     st.progress(int(prob * 100))
@@ -291,18 +281,18 @@ if predict:
     st.markdown("<div style='height:.5rem'></div>", unsafe_allow_html=True)
 
     # ✅ Alert
-    if risk == "High Risk":
+    if "High" in risk:
         st.error("🚨 High risk applicant — loan approval is not recommended.")
-    elif risk == "Medium Risk":
+    elif "Medium" in risk:
         st.warning("⚠️ Medium risk — further verification is recommended.")
     else:
         st.success("✅ Low risk applicant — safe for loan approval.")
 
     # ✅ Insight
-    if risk == "High Risk":
+    if "High" in risk:
         msg = "High default probability detected. Review income stability, credit history, and consider collateral before approval."
         accent = "#F87171"
-    elif risk == "Medium Risk":
+    elif "Medium" in risk:
         msg = "Moderate risk detected. Additional document verification and collateral assessment is advised."
         accent = "#FBBF24"
     else:
@@ -317,45 +307,6 @@ if predict:
     """, unsafe_allow_html=True)
 
     st.markdown('</div>', unsafe_allow_html=True)
-
-# ─── ANALYTICS DASHBOARD ───────────────────────────────────────
-st.markdown("---")
-st.markdown('<h2 style="color:#F1F5F9;text-align:center;margin-bottom:2rem;">📊 Portfolio Analytics Dashboard</h2>', unsafe_allow_html=True)
-
-# KPI Metrics
-col1, col2, col3, col4 = st.columns(4)
-with col1:
-    st.metric("Total Applications", len(df))
-with col2:
-    st.metric("High Risk", f"{(df['risk']=='High Risk').sum()}", f"{(df['risk']=='High Risk').mean()*100:.1f}%")
-with col3:
-    st.metric("Avg Income", f"₹{df['income'].mean():,.0f}")
-with col4:
-    st.metric("Avg Loan", f"₹{df['loan_amount'].mean():,.0f}")
-
-# Charts Row 1
-col_chart1, col_chart2 = st.columns(2)
-
-with col_chart1:
-    section("Risk Distribution", "#10B981", "#059669")
-    risk_counts = df['risk'].value_counts()
-    fig_pie = px.pie(values=risk_counts.values, names=risk_counts.index, 
-                     color_discrete_map={'Low Risk': '#10B981', 'Medium Risk': '#F59E0B', 'High Risk': '#EF4444'},
-                     hole=0.4)
-    fig_pie.update_layout(showlegend=True, height=350, margin=dict(t=30, b=0))
-    st.plotly_chart(fig_pie, use_container_width=True)
-
-with col_chart2:
-    section("Risk by Loan Grade", "#8B5CF6", "#7C3AED")
-    crosstab = pd.crosstab(df['loan_grade'], df['risk'], df['loan_amount'], aggfunc='sum').round(0)
-    fig_heatmap = px.imshow(crosstab.values,
-                           x=crosstab.columns,
-                           y=crosstab.index,
-                           labels=dict(color="Total Loan Amount ₹"),
-                           color_continuous_scale="Reds",
-                           text_auto=True)
-    fig_heatmap.update_layout(height=350, margin=dict(t=30, b=0))
-    st.plotly_chart(fig_heatmap, use_container_width=True)
 
 # Charts Row 2
 col_scatter1, col_scatter2 = st.columns(2)
